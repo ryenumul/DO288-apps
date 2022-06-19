@@ -1,2 +1,28 @@
 # Use the httpd-parent image as base
 FROM quay.io/redhattraining/httpd-parent
+
+#override the EXPOSE instruction from the parent to bind to 8080 instead of 80
+EXPOSE 8080 
+
+#include label below: indicate, within the metadata, the changed port that the web server runs on:
+#LABEL io.openshift.expose-services="8080:http"
+
+#also update the list of labels to include the following, which OpenShift consumes to provide helpful metadata about the container image:
+LABEL io.k8s.description="A basic Apache HTTP Server child image, uses ONBUILD" \
+      io.k8s.display-name="Apache HTTP Server" \
+      io.openshift.expose-services="8080:http" \
+      io.openshift.tags="apache, httpd"
+
+#We also need to run the web server on an unprivileged port (greater than 1024). Use RUN 
+#to change the port number in the Apache HTTP Server config file from default port 80 to 8080:
+RUN sed -i "s/Listen 80/Listen 8080/g" /etc/httpd/conf/httpd.conf
+RUN sed -i "s/#ServerName www.example.com:80/ServerName 0.0.0.0:8000/g" /etc/
+httpd/conf/httpd.conf
+
+#change group ID and permissions of folders where web server process
+#reads and writes files:
+RUN chgrp -R 0 /var/log/httpd /var/run/httpd && \
+ chmod -R g=u /var/log/httpd /var/run/httpd
+
+#add USER instruction for an unprivileged user. Red Hat convention is to use userid 1001:
+USER 1001
